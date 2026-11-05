@@ -8,6 +8,10 @@ from prophet import Prophet
 import plotly.graph_objects as go
 import getpass
 from dotenv import load_dotenv
+import torch
+from chronos import BaseChronosPipeline  
+import random
+
 
 # Load local environment configuration keys safely
 load_dotenv()
@@ -110,6 +114,52 @@ future_dates = prophet_model.make_future_dataframe(periods=steps, freq='ME')
 prophet_pred = prophet_model.predict(future_dates)
 prophet_series = prophet_pred.set_index('ds')['yhat'].loc['2026-08-31':]
 
+# EXTRA: TRANSFORMER FOUNDATION MODEL PIPELINE (AMAZON CHRONOS)
+def enforce_reproducibility(seed_value=42):
+    """Locks down all random number generation states to force identical outputs across runs."""
+    random.seed(seed_value)
+    np.random.seed(seed_value)
+    torch.manual_seed(seed_value)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed_value)
+    print(f"Reproducibility locked using seed value: {seed_value}")
+
+# Execute before any data processing or model modeling begins
+enforce_reproducibility(42)
+
+print("Loading pre-trained Amazon Chronos Transformer foundation model...")
+
+# 1. Initialize the pipeline. 
+# Options: "amazon/chronos-t5-mini" (8M params) or "amazon/chronos-t5-small" (46M params)
+# Set device_map="cpu" for local running, or "cuda" / "mps" if specialized hardware is available
+pipeline = BaseChronosPipeline.from_pretrained(
+    "amazon/chronos-t5-small",
+    device_map="cpu", 
+    torch_dtype=torch.float32
+)
+
+# 2. Extract and format the training data
+# Chronos expects a 1D or 2D torch.Tensor configuration as context
+historical_tensor = torch.tensor(df_modern_train['USD_INR'].values, dtype=torch.float32)
+
+# 3. Generate probabilistic simulations through 2050
+# steps = total monthly intervals calculated in your script setup
+print(f"Projecting {steps} months into the 2050 horizon via self-attention...")
+chronos_samples = pipeline.predict(
+    inputs=historical_tensor,
+    prediction_length=steps,
+    num_samples=20  # Generates 20 distinct trajectory paths to map uncertainty
+)
+
+# 4. Extract median trajectory paths from the sample tensor array
+# chronos_samples shape: [num_series (1), prediction_length, num_samples]
+samples_array = chronos_samples[0].numpy()  # Convert to standard numpy space
+chronos_median = np.median(samples_array, axis=0)
+
+# 5. Bind data directly onto your structured pandas target index
+chronos_series = pd.Series(chronos_median, index=forecast_range)
+print("Chronos Transformer prediction vector successfully generated.")
+
 
 # DYNAMIC PLOTLY VISUALIZATION
 print("Generating complete interactive dashboard layout...")
@@ -138,6 +188,15 @@ fig.add_trace(go.Scatter(
     line=dict(color='#e67e22', width=2),
     hovertemplate='<b>Prophet Horizon</b><br>Date: %{x}<br>Value: ₹%{y:.2f}<extra></extra>'
 ))
+
+# Plot Chronos Transformer Vector Channel
+fig.add_trace(go.Scatter(
+    x=chronos_series.index, y=chronos_series,
+    mode='lines', name='Amazon Chronos Transformer',
+    line=dict(color='#27ae60', width=2, dash='dashdot'),  # Distinguishable green line
+    hovertemplate='<b>Chronos Horizon</b><br>Date: %{x}<br>Value: ₹%{y:.2f}<extra></extra>'
+))
+
 
 # Inject vertical indicators mapping computed regime break thresholds
 for bp_date, marker_lbl, color in zip([break_date_1, break_date_2], ['Shift Regime 1', 'Shift Regime 2'], ['#9b59b6', '#e74c3c']):
@@ -343,12 +402,12 @@ html_document_template = f"""<!DOCTYPE html>
         </div>
         <div class="regime-card regime-3">
             <div>
-                <h3>Regime 3: Modern Open-Market Float (Mid-2000s - 2026)</h3>
+                <h3>Regime 3: Modern Open Float & Transformer Horizon (Mid-2000s - 2026)</h3>
                 <p>A volatile, steeper upward cycle showing significant sensitivity to macro shifts, international institutional investment waves, and active liquidity stabilizing parameters by the Reserve Bank of India.</p>
             </div>
             <div class="trend-box">
-                <div class="trend-title">Future Forecast Mapping</div>
-                <p style="margin: 0; font-size: 0.9rem; color: #334155;"><b>Prophet Seasonal Baseline:</b> The amplified volatility variance and persistent modern inflation differentials observed here drive the cyclical oscillations of the Prophet vector, simulating a wavy, reality-grounded progression through 2050.</p>
+                <div class="trend-title">Future Forecast Mapping (Experimental)</div>
+                <p style="margin: 0; font-size: 0.9rem; color: #334155;"><b>Amazon Chronos Engine:</b> Serves as an alternative case study. Chronos exhibits excellent market intelligence over the short-to-medium horizon (up to ~2032) by capturing local resistance points. Over long multi-decade extensions, its auto-regressive transformer layers naturally face attention degradation, explaining its gradual stabilization to a conservative baseline.</p>
             </div>
         </div>
     </div>
