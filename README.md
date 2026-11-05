@@ -34,7 +34,7 @@ FRED_API_KEY=your_st_louis_fed_api_key
 python main.py
 ```
 
-## Interactive Architecture Features
+## Interactive Architecture & Modeling Matrix
 
 - **100-Year Interactive Engine:** Fully self-contained Plotly charting system embedded directly in HTML via `include_plotlyjs=True`. Works completely offline without needing an active Python kernel or server runtime.
 - **Deterministic Reproducibility:** Anchored using global seed states across Python, NumPy, and PyTorch random number generators to ensure identical Chronos sample outputs across sequential executions.
@@ -44,3 +44,15 @@ python main.py
   - **Prophet:** Maps seasonal macro waves and annual variations using amplified historical volatility scaling.
   - **Amazon Chronos (T5-Small):** Processes the modern float era as an attention context vector to generate a non-linear, self-correcting asset trajectory path.
 - **Cross-National Metrics Matrix:** Contextualizes global market data profiles tracking policy mandates, billionaire asset distributions (US: 989, India: 229), and systemic well-being indices (US: 23rd, India: 116th) across the United States and India.
+
+## Data Sources & Citations
+
+This pipeline ingests and standardizes macro-financial timelines from the following primary endpoints:
+
+- **Modern Floating Era (1973–Present):** Automated sequence ingestion from the **Federal Reserve Bank of St. Louis (FRED) API Resource Engine**.
+  - _Series ID Identifier:_ `DEXINUS` (Indian Rupees to One U.S. Dollar Spot Exchange Rate).
+- **Historical Sovereign Peg Era (1947–1973):** Extrapolated from historic central reserve matrices charting structural currency adjustments:
+  - _1947-08-15:_ Independence Peg (Initial valuation parity baseline of ₹3.30 / $1).
+  - _1949-09-18:_ Post-devaluation inflationary baseline alignment (Adjusted to ₹4.76 / $1).
+  - _1966-06-06:_ Post-war structural adjustment intervention (Devalued to ₹7.50 / $1).
+  - _1971-12-20:_ Smithsonian Agreement macro realignment parameter (Adjusted to ₹8.39 / $1).
